@@ -32,6 +32,8 @@ pub mod hash;
 pub mod http;
 #[cfg(feature = "iconforge")]
 pub mod iconforge;
+#[cfg(feature = "jwt")]
+pub mod jwt;
 #[cfg(feature = "json")]
 pub mod json;
 #[cfg(feature = "log")]
