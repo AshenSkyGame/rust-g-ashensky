@@ -4,7 +4,7 @@ use super::{
 };
 use crate::error::Error;
 use dmi::{dirs::Dirs, icon::IconState};
-use image::{imageops, DynamicImage, Rgba, RgbaImage};
+use image::{Rgba, RgbaImage, imageops};
 use ordered_float::OrderedFloat;
 use rayon::{
     iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator},
@@ -95,7 +95,7 @@ pub fn crop(image: &mut RgbaImage, x1: i32, y1: i32, x2: i32, y2: i32) {
             height_inc += y1.unsigned_abs();
             y1 = 0;
         }
-        let mut blank_img: image::ImageBuffer<image::Rgba<u8>, Vec<u8>> =
+        let mut blank_img: RgbaImage =
             RgbaImage::from_fn(i_width + width_inc, i_height + height_inc, |_x, _y| {
                 image::Rgba([0, 0, 0, 0])
             });
@@ -496,14 +496,18 @@ pub fn blend_images_other_universal(
     if expected_length_first != image_data.images.len() as u32 {
         return Err(Error::IconForge(format!(
             "Error during blend_images_other - the base set of images did not contain the correct amount of images (contains {}, it should contain {expected_length_first}) to match the amount of dirs ({}) or frames ({}) from the first icon state. This shouldn't ever happen!",
-            image_data.images.len(), image_data.dirs, image_data.frames
+            image_data.images.len(),
+            image_data.dirs,
+            image_data.frames
         )));
     }
     let expected_length_last = image_data_other.dirs as u32 * image_data_other.frames;
     if expected_length_last != image_data_other.images.len() as u32 {
         return Err(Error::IconForge(format!(
             "Error during blend_images_other - the blending set of images did not contain the correct amount of images (contains {}, it should contain {expected_length_last}) to match the amount of dirs ({}) or frames ({}) from the last icon state. This shouldn't ever happen!",
-            image_data_other.images.len(), image_data_other.dirs, image_data_other.frames
+            image_data_other.images.len(),
+            image_data_other.dirs,
+            image_data_other.frames
         )));
     }
     let mut images = image_data.images.clone();
@@ -553,15 +557,19 @@ pub fn blend_images_other_universal(
                 .clone()
                 .unwrap_or(vec![1.0; frames_out as usize]);
             let delay_diff = frames_out as i32 - new_delays.len() as i32;
-            // Extend the number of delays to match frames by copying the first delay
-            if delay_diff > 0 {
-                new_delays.extend(vec![
-                    *new_delays.first().unwrap_or(&1.0);
-                    delay_diff as usize
-                ]);
-            } else if delay_diff < 0 {
-                // sometimes DMIs can contain more delays than frames because they retain old data
-                new_delays = new_delays[0..frames_out as usize].to_vec()
+            match delay_diff.cmp(&0) {
+                std::cmp::Ordering::Greater => {
+                    // Extend the number of delays to match frames by copying the first delay
+                    new_delays.extend(vec![
+                        *new_delays.first().unwrap_or(&1.0);
+                        delay_diff as usize
+                    ]);
+                }
+                std::cmp::Ordering::Less => {
+                    // sometimes DMIs can contain more delays than frames because they retain old data
+                    new_delays = new_delays[0..frames_out as usize].to_vec()
+                }
+                _ => {}
             }
             delay_out = Some(new_delays);
         } else {
@@ -571,16 +579,16 @@ pub fn blend_images_other_universal(
             )));
         }
     }
-    let images_out: Vec<DynamicImage> = if images_other.len() == 1 {
+    let images_out: Vec<RgbaImage> = if images_other.len() == 1 {
         // This is useful in the case where the something with 4+ dirs blends with 1dir
-        let first_image = images_other.first().unwrap().clone().into_rgba8();
+        let first_image = images_other.first().unwrap().clone();
         images
             .into_par_iter()
             .map(|image| {
                 zone!("blend_image_other_simple");
-                let mut new_image = image.clone().into_rgba8();
+                let mut new_image = image.clone();
                 blend_icon(&mut new_image, &first_image, blend_mode, position);
-                DynamicImage::ImageRgba8(new_image)
+                new_image
             })
             .collect()
     } else {
@@ -588,9 +596,9 @@ pub fn blend_images_other_universal(
             .into_par_iter()
             .map(|(image, image2)| {
                 zone!("blend_image_other");
-                let mut new_image = image.clone().into_rgba8();
-                blend_icon(&mut new_image, &image2.into_rgba8(), blend_mode, position);
-                DynamicImage::ImageRgba8(new_image)
+                let mut new_image = image.clone();
+                blend_icon(&mut new_image, &image2, blend_mode, position);
+                new_image
             })
             .collect()
     };
@@ -611,12 +619,12 @@ pub fn blend_images_other_universal(
 /// Blends a set of images with another set of images.
 /// The frame and dir counts of first_matched_state are mutated to match the new icon.
 pub fn blend_images_other(
-    images: Vec<DynamicImage>,
-    images_other: Vec<DynamicImage>,
+    images: Vec<RgbaImage>,
+    images_other: Vec<RgbaImage>,
     blend_mode: &blending::BlendMode,
     first_matched_state: &mut Option<IconState>,
     last_matched_state: &mut Option<IconState>,
-) -> Result<Vec<DynamicImage>, Error> {
+) -> Result<Vec<RgbaImage>, Error> {
     zone!("blend_images_other");
     let base_icon_state = match first_matched_state {
         Some(state) => state,
@@ -636,14 +644,18 @@ pub fn blend_images_other(
     if expected_length_first != images.len() as u32 {
         return Err(Error::IconForge(format!(
             "Error during blend_images_other - the base set of images did not contain the correct amount of images (contains {}, it should contain {expected_length_first}) to match the amount of dirs ({}) or frames ({}) from the first icon state. This shouldn't ever happen!",
-            images.len(), base_icon_state.dirs, base_icon_state.frames
+            images.len(),
+            base_icon_state.dirs,
+            base_icon_state.frames
         )));
     }
     let expected_length_last = blending_icon_state.dirs as u32 * blending_icon_state.frames;
     if expected_length_last != images_other.len() as u32 {
         return Err(Error::IconForge(format!(
             "Error during blend_images_other - the blending set of images did not contain the correct amount of images (contains {}, it should contain {expected_length_last}) to match the amount of dirs ({}) or frames ({}) from the last icon state. This shouldn't ever happen!",
-            images_other.len(), blending_icon_state.dirs, blending_icon_state.frames
+            images_other.len(),
+            blending_icon_state.dirs,
+            blending_icon_state.frames
         )));
     }
     let mut images = images.clone();
@@ -668,7 +680,10 @@ pub fn blend_images_other(
         } else {
             return Err(Error::IconForge(format!(
                 "Attempted to blend two icon states with different dir amounts - {} and {}, with {} and {} dirs respectively.",
-                base_icon_state.name, blending_icon_state.name, base_icon_state.dirs, blending_icon_state.dirs
+                base_icon_state.name,
+                blending_icon_state.name,
+                base_icon_state.dirs,
+                blending_icon_state.dirs
             )));
         }
     }
@@ -691,34 +706,42 @@ pub fn blend_images_other(
                     .clone()
                     .unwrap_or(vec![1.0; base_icon_state.frames as usize]);
             let delay_diff = base_icon_state.frames as i32 - new_delays.len() as i32;
-            // Extend the number of delays to match frames by copying the first delay
-            if delay_diff > 0 {
-                new_delays.extend(vec![
-                    *new_delays.first().unwrap_or(&1.0);
-                    delay_diff as usize
-                ]);
-            } else if delay_diff < 0 {
-                // sometimes DMIs can contain more delays than frames because they retain old data
-                new_delays = new_delays[0..base_icon_state.frames as usize].to_vec()
+
+            match delay_diff.cmp(&0) {
+                std::cmp::Ordering::Greater => {
+                    // Extend the number of delays to match frames by copying the first delay
+                    new_delays.extend(vec![
+                        *new_delays.first().unwrap_or(&1.0);
+                        delay_diff as usize
+                    ]);
+                }
+                std::cmp::Ordering::Less => {
+                    // sometimes DMIs can contain more delays than frames because they retain old data
+                    new_delays = new_delays[0..base_icon_state.frames as usize].to_vec()
+                }
+                _ => {}
             }
             base_icon_state.delay = Some(new_delays);
         } else {
             return Err(Error::IconForge(format!(
                 "Attempted to blend two icon states with different frame amounts - {} and {}, with {} and {} frames respectively.",
-                base_icon_state.name, blending_icon_state.name, base_icon_state.frames, blending_icon_state.frames
+                base_icon_state.name,
+                blending_icon_state.name,
+                base_icon_state.frames,
+                blending_icon_state.frames
             )));
         }
     }
-    let images_out: Vec<DynamicImage> = if images_other.len() == 1 {
+    let images_out: Vec<RgbaImage> = if images_other.len() == 1 {
         // This is useful in the case where the something with 4+ dirs blends with 1dir
-        let first_image = images_other.first().unwrap().clone().into_rgba8();
+        let first_image = images_other.first().unwrap().clone();
         images
             .into_par_iter()
             .map(|image| {
                 zone!("blend_image_other_simple");
-                let mut new_image = image.clone().into_rgba8();
+                let mut new_image = image.clone();
                 blend_icon(&mut new_image, &first_image, blend_mode, None);
-                DynamicImage::ImageRgba8(new_image)
+                new_image
             })
             .collect()
     } else {
@@ -726,9 +749,9 @@ pub fn blend_images_other(
             .into_par_iter()
             .map(|(image, image2)| {
                 zone!("blend_image_other");
-                let mut new_image = image.clone().into_rgba8();
-                blend_icon(&mut new_image, &image2.into_rgba8(), blend_mode, None);
-                DynamicImage::ImageRgba8(new_image)
+                let mut new_image = image.clone();
+                blend_icon(&mut new_image, &image2, blend_mode, None);
+                new_image
             })
             .collect()
     };
@@ -747,7 +770,7 @@ impl Transform {
         flatten: bool,
     ) -> Result<UniversalIconData, String> {
         zone!("transform_apply");
-        let images: Vec<DynamicImage>;
+        let images: Vec<RgbaImage>;
         let mut frames = image_data.frames;
         let mut dirs = image_data.dirs;
         let mut delay = image_data.delay.to_owned();
@@ -788,7 +811,7 @@ impl Transform {
                 frames = new_out.frames;
                 dirs = new_out.dirs;
                 delay = new_out.delay;
-                image_cache::cache_transformed_images(icon, other_image_data);
+                image_cache::cache_transformed_images(icon, other_image_data, flatten);
             }
             Transform::Scale { width, height } => {
                 images = image_data.map_cloned_images(|image| scale(image, *width, *height));
@@ -825,7 +848,11 @@ impl Transform {
                         if image.width() != image.height()
                             && !dmi::dirs::CARDINAL_DIRS.contains(&dir)
                         {
-                            return Err(format!("Non-square icons cannot be flipped diagonally (Turned&Flipped)! (used Flip(dir={dir}) on {}x{})", image.width(), image.height()));
+                            return Err(format!(
+                                "Non-square icons cannot be flipped diagonally (Turned&Flipped)! (used Flip(dir={dir}) on {}x{})",
+                                image.width(),
+                                image.height()
+                            ));
                         }
                         dir
                     }
@@ -870,8 +897,7 @@ impl Transform {
                         "Invalid bounds {x1} {y1} to {x2} {y2} in DrawBox transform"
                     ));
                 }
-                let hex = color.clone().unwrap_or_else(|| String::from("#00000000"));
-                let rgba = hex_to_rgba(&hex)?;
+                let rgba = color.as_ref().map(hex_to_rgba).unwrap_or(Ok([0; 4]))?;
                 images =
                     image_data.map_cloned_images(|image| draw_box(image, rgba, x1, y1, x2, y2));
             }
@@ -888,7 +914,7 @@ impl Transform {
 }
 
 /// Applies a list of Transforms to UniversalIconData immediately and sequentially, while handling any errors. Optionally flattens to only the first dir and frame.
-fn apply_all_transforms(
+pub fn apply_all_transforms(
     image_data: Arc<UniversalIconData>,
     transforms: &Vec<Transform>,
     flatten: bool,

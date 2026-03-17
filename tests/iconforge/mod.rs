@@ -3,10 +3,10 @@ use dmi::{
     error::DmiError,
     icon::{Icon, IconState},
 };
-use image::{DynamicImage, GenericImageView};
+use image::RgbaImage;
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::{
-    fs::{read_dir, File},
+    fs::{File, read_dir},
     io::BufReader,
     path::Path,
     sync::{Arc, Mutex},
@@ -18,7 +18,7 @@ fn iconforge() {
     // Generate icons for comparison
     run_dm_tests("iconforge", false);
     // Compare said icons
-    std::env::set_var("RUST_BACKTRACE", "1");
+    unsafe { std::env::set_var("RUST_BACKTRACE", "1") };
     let mut differences: Vec<String> = Vec::new();
     for entry in read_dir("tests/dm/tmp/").unwrap().flatten() {
         if let Some(file_name) = entry.file_name().to_str() {
@@ -29,7 +29,9 @@ fn iconforge() {
             let rustg_path_str = format!("tests/dm/tmp/iconforge_rustg_{size}.dmi");
             let rustg_path = Path::new(&rustg_path_str);
             if !std::fs::exists(rustg_path).unwrap() {
-                panic!("Could not find corresponding iconforge_rustg_{size}.dmi for iconforge_dm_{size}.dmi!")
+                panic!(
+                    "Could not find corresponding iconforge_rustg_{size}.dmi for iconforge_dm_{size}.dmi!"
+                )
             }
             if let Some(diff) = compare_dmis(entry.path().as_path(), rustg_path) {
                 differences.push(format!(
@@ -40,6 +42,43 @@ fn iconforge() {
                 ));
             }
         }
+    }
+    // Compare headless icons with non-headless icons for sanity check
+    unsafe { std::env::set_var("RUST_BACKTRACE", "1") };
+    let mut differences: Vec<String> = Vec::new();
+    for entry in read_dir("tests/dm/tmp/").unwrap().flatten() {
+        if let Some(file_name) = entry.file_name().to_str() {
+            if !file_name.starts_with("iconforge_rustg_") || !file_name.ends_with(".dmi") {
+                continue;
+            }
+            let size = file_name
+                .replace("iconforge_rustg_", "")
+                .replace(".dmi", "");
+            let headless_path_str = format!("tests/dm/tmp/headless_iconforge_rustg_{size}.dmi");
+            let headless_path = Path::new(&headless_path_str);
+            if !std::fs::exists(headless_path).unwrap() {
+                panic!(
+                    "Could not find corresponding headless_iconforge_rustg_{size}.dmi for iconforge_rustg_{size}.dmi!"
+                )
+            }
+            if let Some(diff) = compare_dmis(entry.path().as_path(), headless_path) {
+                differences.push(format!(
+                    "icon (headless) {} differs from {}:\n{}",
+                    headless_path.display(),
+                    entry.path().display(),
+                    diff
+                ));
+            }
+        }
+    }
+    // Compare BYOND's copied version of a valid headless icon states
+    if let Some(diff) = compare_dmis(
+        Path::new("tests/dm/tmp/iconforge_valid_headless_copied.dmi"),
+        Path::new("tests/dm/tmp/iconforge_valid_headless.dmi"),
+    ) {
+        differences.push(format!(
+            "icon tests/dm/tmp/iconforge_valid_headless.dmi differs from tests/dm/tmp/iconforge_valid_headless_copied.dmi:\n{diff}",
+        ));
     }
     // Compare gags icons
     if let Some(diff) = compare_dmis(
@@ -70,10 +109,11 @@ fn tmp_cleanup() {
         }
     };
     for entry in dir.flatten() {
-        if let Some(file_name) = entry.file_name().to_str() {
-            if file_name.starts_with("iconforge_") && file_name.ends_with(".dmi") {
-                let _ = std::fs::remove_file(entry.path());
-            }
+        if let Some(file_name) = entry.file_name().to_str()
+            && (file_name.starts_with("iconforge_") || file_name.starts_with("headless_iconforge_"))
+            && file_name.ends_with(".dmi")
+        {
+            let _ = std::fs::remove_file(entry.path());
         }
     }
 }
@@ -168,7 +208,7 @@ fn compare_states(dm_state: &IconState, rustg_state: &IconState) -> Option<Strin
 
     if dm_state.rewind != rustg_state.rewind {
         differences.push(format!(
-            "REWING FLAG: dm: {} - rustg: {}",
+            "REWIND FLAG: dm: {} - rustg: {}",
             dm_state.rewind, rustg_state.rewind
         ));
     }
@@ -211,8 +251,8 @@ fn compare_states(dm_state: &IconState, rustg_state: &IconState) -> Option<Strin
 
 fn compare_images(
     differences: &mut Vec<String>,
-    dm_images: &Vec<DynamicImage>,
-    rustg_images: &Vec<DynamicImage>,
+    dm_images: &Vec<RgbaImage>,
+    rustg_images: &Vec<RgbaImage>,
     dirs: u8,
 ) {
     let safe_diffs = Arc::new(Mutex::new(Vec::<String>::new()));

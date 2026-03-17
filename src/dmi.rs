@@ -4,13 +4,13 @@ use dmi::{
     icon::{Icon, Looping},
 };
 use image::Rgba;
-use png::{text_metadata::ZTXtChunk, Decoder, Encoder, OutputInfo, Reader};
-use qrcode::{render::svg, QrCode};
+use png::{Decoder, Encoder, OutputInfo, Reader, text_metadata::ZTXtChunk};
+use qrcode::{QrCode, render::svg};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::{
     fmt::Write,
-    fs::{create_dir_all, File},
+    fs::{File, create_dir_all},
     io::BufReader,
     num::NonZeroU32,
     path::Path,
@@ -56,9 +56,11 @@ fn strip_metadata(path: &str) -> Result<()> {
     write_png(path, &reader, &frame_info, &image, true)
 }
 
-fn read_png(path: &str) -> Result<(Reader<File>, OutputInfo, Vec<u8>)> {
-    let mut reader = Decoder::new(File::open(path)?).read_info()?;
-    let mut buf = vec![0; reader.output_buffer_size()];
+fn read_png(path: &str) -> Result<(Reader<BufReader<File>>, OutputInfo, Vec<u8>)> {
+    let file = BufReader::new(File::open(path)?);
+    let mut reader = Decoder::new(file).read_info()?;
+    let buffer_size = reader.output_buffer_size().ok_or(Error::InvalidPngData)?;
+    let mut buf = vec![0; buffer_size];
     let frame_info = reader.next_frame(&mut buf)?;
 
     Ok((reader, frame_info, buf))
@@ -66,7 +68,7 @@ fn read_png(path: &str) -> Result<(Reader<File>, OutputInfo, Vec<u8>)> {
 
 fn write_png(
     path: &str,
-    reader: &Reader<File>,
+    reader: &Reader<BufReader<File>>,
     info: &OutputInfo,
     image: &[u8],
     strip: bool,
@@ -114,10 +116,10 @@ fn create_png(path: &str, width: &str, height: &str, data: &str) -> Result<()> {
         }
     }
 
-    if let Some(fdir) = Path::new(path).parent() {
-        if !fdir.is_dir() {
-            create_dir_all(fdir)?;
-        }
+    if let Some(fdir) = Path::new(path).parent()
+        && !fdir.is_dir()
+    {
+        create_dir_all(fdir)?;
     }
 
     let mut encoder = Encoder::new(File::create(path)?, width, height);
@@ -212,7 +214,7 @@ struct DmiMetadata {
 }
 
 fn read_metadata(path: &str) -> Result<String> {
-    let dmi = Icon::load(File::open(path).map(BufReader::new)?)?;
+    let dmi = Icon::load_meta(File::open(path).map(BufReader::new)?)?;
     let metadata = DmiMetadata {
         width: dmi.width,
         height: dmi.height,
