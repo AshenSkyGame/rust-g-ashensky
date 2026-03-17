@@ -71,3 +71,5 @@ pub mod worleynoise;
 compile_error!(
     "Compiling for non-32bit is not allowed without enabling the `allow_non_32bit` feature."
 );
+#[cfg(feature = "sklonenie")]
+pub mod sklonenie;
