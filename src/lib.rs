@@ -32,10 +32,10 @@ pub mod hash;
 pub mod http;
 #[cfg(feature = "iconforge")]
 pub mod iconforge;
-#[cfg(feature = "jwt")]
-pub mod jwt;
 #[cfg(feature = "json")]
 pub mod json;
+#[cfg(feature = "jwt")]
+pub mod jwt;
 #[cfg(feature = "log")]
 pub mod log;
 #[cfg(feature = "noise")]
@@ -50,6 +50,8 @@ pub mod redis_pubsub;
 pub mod redis_reliablequeue;
 #[cfg(feature = "sanitize")]
 pub mod sanitize;
+#[cfg(feature = "sklonenie")]
+pub mod sklonenie;
 #[cfg(feature = "sound_len")]
 pub mod sound_len;
 #[cfg(feature = "sql")]
@@ -71,5 +73,3 @@ pub mod worleynoise;
 compile_error!(
     "Compiling for non-32bit is not allowed without enabling the `allow_non_32bit` feature."
 );
-#[cfg(feature = "sklonenie")]
-pub mod sklonenie;
