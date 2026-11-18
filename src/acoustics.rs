@@ -95,7 +95,7 @@ pub fn evaluate_acoustics(
         return vec![0; targets.len()];
     }
 
-    let initial_energy: i16 = (voice_range as i16) * 10;
+    let initial_energy: i16 = ((voice_range + 1) as i16) * 10;
     let mut energy_grid = [-1i16; LOCAL_DIM * LOCAL_DIM];
 
     let mut heap = BinaryHeap::new();
@@ -312,19 +312,19 @@ mod tests {
         let voice_range = 7;
         let targets = vec![
             (25, 25), // Self: 100%
-            (26, 25), // 1 tile east: 60/70 ~ 85%
-            (28, 25), // 3 tiles east: 40/70 ~ 57%
-            (31, 25), // 6 tiles east: 10/70 ~ 14%
-            (32, 25), // 7 tiles east: 0%
-            (35, 25), // 10 tiles east: 0%
+            (26, 25), // 1 tile east: 70/80 ~ 87%
+            (28, 25), // 3 tiles east: 50/80 ~ 62%
+            (31, 25), // 6 tiles east: 20/80 = 25%
+            (32, 25), // 7 tiles east: 10/80 = 12%
+            (33, 25), // 8 tiles east: 0%
         ];
 
         let results = evaluate_acoustics(&map, 1, src.0, src.1, voice_range, &targets);
         assert_eq!(results[0], 100);
-        assert_eq!(results[1], 85);
-        assert_eq!(results[2], 57);
-        assert_eq!(results[3], 14);
-        assert_eq!(results[4], 0);
+        assert_eq!(results[1], 87);
+        assert_eq!(results[2], 62);
+        assert_eq!(results[3], 25);
+        assert_eq!(results[4], 12);
         assert_eq!(results[5], 0);
     }
 
@@ -382,13 +382,13 @@ mod tests {
         let res_whisper = evaluate_acoustics(&map, 1, src.0, src.1, 1, &[target]);
         assert_eq!(res_whisper[0], 0);
 
-        // Normal voice (range 7 -> 70 energy, door costs 40 + air 10 = 50 cost -> 20/70 = 28%)
+        // Normal voice (range 7 -> 80 energy, door costs 40 + air 10 = 50 cost -> 30/80 = 37%)
         let res_normal = evaluate_acoustics(&map, 1, src.0, src.1, 7, &[target]);
-        assert_eq!(res_normal[0], 28);
+        assert_eq!(res_normal[0], 37);
 
-        // Shout (range 14 -> 140 energy -> 90/140 = 64%)
+        // Shout (range 14 -> 150 energy -> 100/150 = 66%)
         let res_shout = evaluate_acoustics(&map, 1, src.0, src.1, 14, &[target]);
-        assert_eq!(res_shout[0], 64);
+        assert_eq!(res_shout[0], 66);
     }
 
     #[test]
