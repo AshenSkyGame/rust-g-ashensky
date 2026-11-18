@@ -1,4 +1,4 @@
-// #![forbid(unsafe_op_in_unsafe_fn)] - see github.com/rust-lang/rust/issues/121483
+﻿// #![forbid(unsafe_op_in_unsafe_fn)] - see github.com/rust-lang/rust/issues/121483
 #![cfg_attr(
     all(windows, not(all(target_vendor = "pc", target_env = "msvc"))),
     allow(clippy::missing_const_for_thread_local)
@@ -12,6 +12,8 @@ mod error;
 #[cfg(feature = "jobs")]
 mod jobs;
 
+#[cfg(feature = "acoustics")]
+pub mod acoustics;
 #[cfg(feature = "acreplace")]
 pub mod acreplace;
 #[cfg(feature = "cellularnoise")]

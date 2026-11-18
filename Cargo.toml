@@ -1,4 +1,4 @@
-﻿[package]
+[package]
 name = "rust-g"
 edition = "2024"
 version = "6.0.1"
@@ -88,6 +88,7 @@ qrcode = { version = "0.14.1", optional = true, features = ["image", "svg"]}
 
 [features]
 default = [
+    "acoustics",
     "acreplace",
     "batchnoise",
     "cellularnoise",
@@ -113,6 +114,7 @@ default = [
 ]
 
 all = [
+    "acoustics",
     "acreplace",
     "batchnoise",
     "cellularnoise",
@@ -145,6 +147,7 @@ all = [
 ]
 
 # default features
+acoustics = []
 acreplace = ["aho-corasick"]
 batchnoise = ["dbpnoise"]
 cellularnoise = ["rand", "rayon"]
