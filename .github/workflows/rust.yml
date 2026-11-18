@@ -85,7 +85,7 @@ jobs:
             target/rust_g.dm
 
   build-linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       BYOND_MAJOR: 516
       BYOND_MINOR: 1667
@@ -105,6 +105,8 @@ jobs:
           targets: i686-unknown-linux-gnu, x86_64-unknown-linux-gnu
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: v1-rust-ubuntu-22.04
 
       - name: Check (all features)
         run: cargo check --target i686-unknown-linux-gnu --locked --features all
@@ -128,7 +130,7 @@ jobs:
             target/rust_g.dm
 
   build-linux-x64:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       BYOND_MAJOR: 516
       BYOND_MINOR: 1667
@@ -148,6 +150,8 @@ jobs:
           targets: x86_64-unknown-linux-gnu
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: v1-rust-ubuntu-22.04
 
       - name: x64 Check (all features)
         run: cargo check --target x86_64-unknown-linux-gnu --locked --features all,allow_non_32bit
