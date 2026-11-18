@@ -138,11 +138,7 @@ pub fn evaluate_acoustics(
             let nx_i = (x as isize) + dx;
             let ny_i = (y as isize) + dy;
 
-            if nx_i < 1
-                || nx_i > (map.width as isize)
-                || ny_i < 1
-                || ny_i > (map.height as isize)
-            {
+            if nx_i < 1 || nx_i > (map.width as isize) || ny_i < 1 || ny_i > (map.height as isize) {
                 continue;
             }
 

@@ -197,7 +197,10 @@ fn find_and_copy_rustg_lib() -> (String, &'static str, &'static str) {
     (rustg_lib_path, rustg_lib_fname, rustg_dm_path)
 }
 
+static DM_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 fn run_dm_tests(name: &str, use_repo_root: bool) {
+    let _guard = DM_TEST_LOCK.lock().unwrap();
     unsafe { std::env::remove_var("RUST_BACKTRACE") };
 
     let (rustg_lib_path, rustg_lib_fname, rustg_dm_path) = find_and_copy_rustg_lib();
